@@ -1,0 +1,421 @@
+<html>
+    <head>
+        <meta charset="utf8"/>
+<style type="text/css">
+*, *:before, *:after{
+    padding:0px;
+    margin:0px;
+    box-sizing:border-box;
+}
+
+div.Screen{
+    width:100%;
+    height:100%;
+    overflow:none;
+    display:flex;
+    flex-direction:column;
+}
+
+div.Answers{
+    display:flex;
+    flex-wrap:wrap;
+}
+
+div.Answer{
+    flex:50%; 
+    padding:5%;
+    border:1px solid black;
+}
+
+div.PreQuestion{
+    flex:60%;
+}
+
+div.Answer{
+    display:flex;
+    font-size:25px;
+}
+
+div.Answer div.Label{
+    margin-right:10%;
+    color:yellow;
+}
+
+div.Answer--disabled{
+    font-size:0px;
+}
+
+div.Answer--selected{
+    background-color:yellow;
+}
+
+div.Answer--correct{
+    background-color:green;
+}
+
+div.Answer--wrong{
+    background-color:red;
+}
+
+div.Screen{
+    display:none;
+}
+
+#select{
+    display:block;
+}
+
+#question{
+    width:100%;
+    border:1px solid black;
+}
+</style>
+<script type="text/javascript">
+function g(id){
+    return document.getElementById(id);
+}
+
+var questions = {
+    500: [
+        {
+            question: "Wie viel lol hälst du aus",
+            answers: [
+                {
+                    text:"Viel lol",
+                    correct: false,
+                },
+                {
+                    text:"sehr viel lol",
+                    correct: false,
+                },
+                {
+                    text:"extrem viel lol",
+                    correct: false,
+                },
+                {
+                    text:"extrem viel lol2",
+                    correct: true,
+                },
+            ],
+            asked: false,
+        },
+        {
+            question: "Wie viel lol hälst du aus 2",
+            answers: [
+                {
+                    text:"Viel lol",
+                    correct: false,
+                },
+                {
+                    text:"sehr viel lol",
+                    correct: false,
+                },
+                {
+                    text:"extrem viel lol",
+                    correct: false,
+                },
+                {
+                    text:"extrem viel lol2",
+                    correct: true,
+                },
+            ],
+            asked: false,
+        },
+    ],
+    1000: {
+
+    },
+};
+
+var levels = [50, 100, 200, 300, 500, 1000, 2000, 4000, 8000, 16000, 32000, 64000, 125000, 500000, 1000000];
+var save_levels = [500, 16000];
+var labels = ["answer_a", "answer_b", "answer_c", "answer_d"];
+
+var current_level = -1;
+var current_question = null;
+var current_selection = null;
+var current_state = null;
+var used_joker_fiftyfifty = false;
+var used_joker_telephone = false;
+var used_joker_public = false;
+
+function create_current_game(){
+    return {
+        level: -1,
+        question: null,
+        selection: null,
+        correct_answer: null,
+        state: null,
+        used_joker_fiftyfifty: false,
+        used_joker_telephone: false,
+        used_joker_public: false,
+    };
+}
+
+var current_game = create_current_game();
+
+function resetAnswers(){
+    for(var label of labels){
+        g(label).className = "Answer";
+    }
+}
+
+function selectAnswer(selected_label){
+    for(var label of labels){
+        g(label).classList.remove("Answer--selected");
+    }
+
+    g(selected_label).classList.add("Answer--selected");
+    current_game.state = "answered";
+    current_game.selection = selected_label;
+}
+
+function showAnswer(){
+        var current_correct = current_game.question.answers.map((item, i) => ({...item, label: labels[i]})).find(item => item.correct).label;
+    if(current_game.selection === current_correct){
+        g(current_game.selection).classList.add("Answer--correct");
+        current_game.state = "correct";
+    }
+    else{
+        g(current_game.selection).classList.add("Answer--wrong");
+        g(current_correct).classList.add("Answer--correct");
+        current_game.state = "wrong";
+    }
+}
+
+function shuffle(a) {
+    var j, x, i;
+    for (i = a.length - 1; i > 0; i--) {
+        j = Math.floor(Math.random() * (i + 1));
+        x = a[i];
+        a[i] = a[j];
+        a[j] = x;
+    }
+    return a;
+}
+
+function next_step(){
+    if(current_game.state === null || current_game.state === "correct"){
+        showNextQuestion();
+        g("public").style.display = 'block';
+        g("select").style.display = 'none';
+        g("game_state").style.display = 'none';
+    }
+    else if(current_game.state === "answered"){
+        showAnswer();
+    }
+    else if(current_game.state === "wrong"){
+        g("game_state").style.display = 'block';
+        g("game_state_title").innerHTML = "{} gewonnen";
+        g("question_screen").style.display = 'none';
+        current_game = create_current_game();
+    }
+    else{
+        console.log("Lol State", current_game.state);
+    }
+    localStorage.setItem("current_game", JSON.stringify(current_game));
+}
+
+function getQuestion(){
+    var question_level = Object.keys(questions).sort((a,b) => a < b);
+    
+    current_game.level += 1;
+    var level_price = levels[current_game.level];
+    g("current_level").innerHTML = level_price;
+    var cur_level = null;
+    for(var level of question_level){
+        if(parseInt(level) >= parseInt(level_price)){
+            cur_level = level;
+            break;
+        }
+    }
+
+    var level_questions = questions[cur_level].filter((item) => !item.asked);
+    return level_questions[Math.floor(Math.random() * level_questions.length)];
+}
+
+function showNextQuestion(){
+    var question = getQuestion();
+    question.asked = true;
+
+    current_game.question = Object.assign({}, question);
+    current_game.question.answers = shuffle(current_game.question.answers);
+    
+    g("question").innerHTML = current_game.question.question;
+    for(var id in current_game.question.answers){
+        var node = g(labels[id]);
+        node.className = "Answer";
+        var text = node.getElementsByClassName("text")[0];
+        text.innerHTML = current_game.question.answers[id].text;
+    }
+    current_game.state = "asked";
+}
+
+function useJoker(type){
+    if(type === "fivtyfivty"){
+        var stay = Math.floor(Math.random() * 3);
+        var current_correct = current_game.question.answers.map((item, i) => ({...item, index: i})).find(item => item.correct).index;
+
+        if(stay >= current_correct){
+            stay += 1;
+        }
+
+        for(var id in current_game.question.answers){
+            if(parseInt(id) !== stay && current_correct !== parseInt(id)){
+                g(labels[id]).classList.add("Answer--disabled");
+            }
+        }
+        current_game.use_joker_fiftyfifty = true;
+    }
+    else if(type === "public"){
+
+    }
+    else if(type === "call"){
+
+    }
+}
+
+function showGameOverScreen(){
+    // Money Win/Loose screen
+    // Exit screen
+}
+
+function showCurrentLevelScreen(){
+    // Show the money ladder and the jokers
+}
+
+window.onstorage = (ev) => {
+    console.log("storage");
+    courrent_game = JSON.parse(localStorage.getItem("current_game"));
+    console.log(current_game);
+};
+
+window.onload = (ev) => {
+    g("show_private_screen").onclick = (ev) => {
+        g("public").style.display = 'none';
+        g("select").style.display = 'none';
+    };
+
+    g("import_questions").onclick = (ev) => {
+        g("select").style.display = 'none';
+        g("public").style.display = 'none';
+    };
+
+    g("show_public_screen").onclick = (ev) => {
+        g("public").style.display = 'block';
+        g("select").style.display = 'none';
+    };
+
+    g("joker_fivtyfivty").onclick = (ev) => {
+        useJoker("fivtyfivty"); 
+    };
+
+    g("joker_public").onclick = (ev) => {
+        useJoker("public");
+    };
+
+    g("joker_telephone").onclick = (ev) => {
+        useJoker("telephone");
+    };
+
+    g("answer_a").onclick = (ev) => {
+        selectAnswer("answer_a");
+    };
+
+    g("answer_b").onclick = (ev) => {
+        selectAnswer("answer_b");
+    };
+
+    g("answer_c").onclick = (ev) => {
+        selectAnswer("answer_c");
+    };
+
+    g("answer_d").onclick = (ev) => {
+        selectAnswer("answer_d");
+    };
+
+    g("next_step").onclick = next_step;
+};
+
+</script>
+    </head>
+    <body>
+        <div id="select" class="Screen">
+            <div class="Item" id="import_questions">
+                Fragen importieren
+            </div>
+            <div class="Item" id="show_private_screen">
+                Gamemaster Bildschirm anzeigen
+            </div>
+            <div class="Item" id="show_public_screen">
+                Spieler/Öffentliche Bildschirm anzeigen
+            </div>
+        </div>
+        <div id="public" class="Screen">
+            <div class="GameState" id="game_state">
+                <h1 id="game_state_title">Spiel starten</h1>
+                <p id="game_state_text"></p>
+            </div>
+            <div class="PreQuestion">
+                <div class="Item">
+                    Aktuelles Level: <div id="current_level">&nbsp;</div>
+                </div>
+                <div class="Item">
+                    Joker:
+                    <div class="Jokers">
+                        <div class="Joker" id="joker_fivtyfivty">
+                            FivtyFivty
+                        </div>
+                        <div class="Joker" id="joker_public">
+                            Publikums Joker
+                        </div>
+                        <div class="Joker" id="joker_telephone">
+                            Telefonjoker
+                        </div>
+                    </div>
+                </div>
+                <div class="Item" id="next_step">
+                    Nächste Frage / Weiter
+                </div>
+            </div>
+            <div class="Question" id="question_screen">
+                <div class="Text" id="question">
+                </div>
+                <div class="Answers">
+                    <div class="Answer Answer" id="answer_a">
+                        <div class="Label">
+                            A:
+                        </div>
+                        <div class="Text">
+                            Antwort A.
+                        </div>
+                    </div>
+                    <div class="Answer" id="answer_b">
+                        <div class="Label">
+                            B:
+                        </div>
+                        <div class="Text">
+                            Antwort B.
+                        </div>
+                    </div>
+                    <div class="Answer" id="answer_c">
+                        <div class="Label">
+                            C:
+                        </div>
+                        <div class="Text">
+                            Antwort C.
+                        </div>
+                    </div>
+                    <div class="Answer" id="answer_d">
+                        <div class="Label">
+                            D:
+                        </div>
+                        <div class="Text">
+                            Antwort D.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </body>
+</html>
